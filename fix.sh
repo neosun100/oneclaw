@@ -274,9 +274,19 @@ elif aws sts get-caller-identity &>/dev/null 2>&1; then
 else
     warn "AWS credentials invalid or expired!"
     echo ""
-    echo -e "  ${YELLOW}Please re-enter your AWS credentials:${NC}"
-    echo -e "  Run: ${CYAN}aws configure${NC}"
-    echo -e "  Or update: ${CYAN}~/.aws/credentials${NC}"
+    # Detect if SSO profile is configured
+    SSO_PROFILE=""
+    if [ -f "$HOME/.aws/config" ]; then
+        SSO_PROFILE=$(grep -B5 'sso_start_url' "$HOME/.aws/config" 2>/dev/null | grep '^\[' | sed 's/.*\[//;s/\]//' | sed 's/^profile //' | head -1)
+    fi
+    if [ -n "$SSO_PROFILE" ]; then
+        echo -e "  ${YELLOW}检测到 SSO profile: ${GREEN}${SSO_PROFILE}${NC}"
+        echo -e "  SSO 凭证可能已过期，请运行: ${CYAN}aws sso login --profile ${SSO_PROFILE}${NC}"
+    else
+        echo -e "  ${YELLOW}Please re-enter your AWS credentials:${NC}"
+        echo -e "  Run: ${CYAN}aws configure${NC}"
+        echo -e "  Or update: ${CYAN}~/.aws/credentials${NC}"
+    fi
     echo ""
 fi
 

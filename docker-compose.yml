@@ -1,0 +1,52 @@
+# OneClaw Docker Compose
+# Usage: docker compose up -d
+# Dashboard: http://localhost:18789
+
+services:
+  openclaw:
+    image: node:22-slim
+    container_name: oneclaw
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18789:18789"
+    volumes:
+      - openclaw-data:/root/.openclaw
+      - ${HOME}/.aws:/root/.aws:ro
+    environment:
+      - OPENCLAW_GATEWAY_PORT=18789
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - LARK_APP_ID=${LARK_APP_ID:-}
+      - LARK_APP_SECRET=${LARK_APP_SECRET:-}
+      - WECOM_CORP_ID=${WECOM_CORP_ID:-}
+      - WECOM_AGENT_ID=${WECOM_AGENT_ID:-}
+      - WECOM_SECRET=${WECOM_SECRET:-}
+      - WECOM_WEBHOOK_URL=${WECOM_WEBHOOK_URL:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        npm install -g pnpm 2>/dev/null
+        curl -fsSL https://openclaw.ai/install.sh | bash 2>/dev/null
+        export PATH="/root/.local/bin:/root/Library/pnpm:$$PATH"
+        openclaw gateway --port 18789 &
+        sleep 3
+        openclaw node run --host 0.0.0.0 --port 18789
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:18789/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  chrome:
+    image: chromedp/headless-shell:latest
+    container_name: oneclaw-chrome
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9222:9222"
+    shm_size: 2gb
+
+volumes:
+  openclaw-data:
