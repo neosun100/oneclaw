@@ -547,6 +547,8 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
             "mcp__playwright__*",
             "mcp__github__*",
             "mcp__filesystem__*",
+            "mcp__sequential-thinking__*",
+            "mcp__brave-search__*",
             "mcp__aws-documentation__*",
             "WebFetch",
             "Write",
@@ -613,6 +615,17 @@ cat > "$HOME/.mcp.json" <<MCP_EOF
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@anthropic-ai/mcp-server-filesystem@latest", "${HOME}/Documents", "${HOME}/Desktop", "${HOME}/.openclaw/workspace"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-sequential-thinking@latest"]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "brave-search-mcp@latest"],
+      "env": {
+        "BRAVE_API_KEY": ""
+      }
     },
     "aws-documentation": {
       "command": "uvx",
@@ -1018,7 +1031,12 @@ for md_file in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md MEMOR
         touch "$OPENCLAW_DIR/workspace/$md_file"
     fi
 done
-success "Workspace markdown files created (empty)"
+
+# Memory system directories
+mkdir -p "$OPENCLAW_DIR/workspace/memory/logs"
+mkdir -p "$OPENCLAW_DIR/workspace/memory/projects"
+mkdir -p "$OPENCLAW_DIR/workspace/memory/groups"
+success "Workspace + memory system created"
 
 # Install skill-vetter from ClawHub (security skill for vetting other skills)
 info "安装 skill-vetter（技能安全审查工具）..."
@@ -1048,11 +1066,16 @@ fi
 # Install best community skills from ClawHub
 info "安装社区推荐 Skills..."
 CLAWHUB_SKILLS=(
+    # Messaging bridges
     "openclaw/skills/feishu-bridge"
+    "openclaw/skills/wecom"
+    # Browser automation
     "openclaw/skills/playwright-cli"
     "openclaw/skills/clawbrowser"
+    # System
     "openclaw/skills/clawhub"
-    "openclaw/skills/wecom"
+    "openclaw/skills/memory-setup"
+    "openclaw/skills/auto-updater"
 )
 
 # Add optional channel skills based on user choices
@@ -1544,7 +1567,8 @@ cat > "$OPENCLAW_DIR/workspace/CLAUDE.md" <<'CLAUDEMD_EOF'
 
 ## System
 
-This is an OpenClaw-managed workspace. The AI assistant runs on Amazon Bedrock (Claude models).
+This is an OpenClaw-managed workspace running on Amazon Bedrock (Claude models).
+Memory is persistent — files in this workspace survive restarts.
 
 ## Rules
 
@@ -1553,19 +1577,39 @@ This is an OpenClaw-managed workspace. The AI assistant runs on Amazon Bedrock (
 - For code tasks: read before edit, verify after change
 - Never delete files directly — move to trash instead
 - When unsure, ask for clarification
+- Write important context to MEMORY.md for future sessions
+- Check MEMORY.md at the start of each session for context
+
+## Memory System
+
+- **MEMORY.md** — Long-term facts, preferences, project context
+- **memory/logs/** — Daily interaction logs (auto-created)
+- **memory/projects/** — Per-project notes
+- Use `memorySearch` to find past context when needed
 
 ## Tools Available
 
 - **Claude Code**: Full coding agent (via ACP)
-- **Browser**: Chrome DevTools Protocol on port 9222
+- **Browser**: Chrome DevTools (port 9222) + Playwright
 - **Shell**: Execute system commands
+- **GitHub**: PR/Issue management via MCP
+- **Filesystem**: Safe local file access via MCP
+- **Sequential Thinking**: Complex reasoning chains
+- **Brave Search**: Web search via MCP
+- **AWS Docs**: AWS documentation queries
+
+## Self-Maintenance
+
+- Run `openclaw doctor` to diagnose issues
+- Skills auto-update daily via auto-updater skill
+- Check `openclaw status` for service health
+- Guardian daemon monitors every 60s
 
 ## Quick Start
 
-After setup, OpenClaw is accessible via:
 - Control UI: http://127.0.0.1:18789
-- Discord (if configured)
 - Terminal: `openclaw chat`
+- Channels: Discord, Telegram, Slack, Lark, WeCom, WeChat, WhatsApp
 CLAUDEMD_EOF
 success "CLAUDE.md written"
 

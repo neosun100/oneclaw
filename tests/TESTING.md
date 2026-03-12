@@ -3,7 +3,7 @@
 ## Overview
 
 - **Test runner**: `bash tests/run_tests.sh`
-- **Total test cases**: 254
+- **Total test cases**: 306
 - **Test categories**: 40
 - **Last verified**: 2026-03-12
 
@@ -485,7 +485,7 @@ VALID
 
 [54. Cross-Platform Parity Check]
   ✓ MCP parity: chrome-devtools (mac=6, linux=4)
-  ✓ MCP parity: playwright (mac=4, linux=3)
+  ✓ MCP parity: playwright (mac=4, linux=4)
   ✓ MCP parity: github (mac=8, linux=4)
   ✓ MCP parity: filesystem (mac=3, linux=3)
   ✓ MCP parity: aws-documentation (mac=3, linux=3)
@@ -499,8 +499,72 @@ VALID
   ✓ install-linux.sh: shellcheck clean (final)
   ✓ fix.sh: shellcheck clean (final)
 
+[56. MCP Parity — All 7 Servers on Both Platforms]
+  ✓ MCP parity: chrome-devtools
+  ✓ MCP parity: playwright
+  ✓ MCP parity: github
+  ✓ MCP parity: filesystem
+  ✓ MCP parity: sequential-thinking
+  ✓ MCP parity: brave-search
+  ✓ MCP parity: aws-documentation
+
+[57. Claude Code Permissions — All MCP Allowed]
+  ✓ macOS allow: chrome-devtools
+  ✓ Linux allow: chrome-devtools
+  ✓ macOS allow: playwright
+  ✓ Linux allow: playwright
+  ✓ macOS allow: github
+  ✓ Linux allow: github
+  ✓ macOS allow: filesystem
+  ✓ Linux allow: filesystem
+  ✓ macOS allow: sequential-thinking
+  ✓ Linux allow: sequential-thinking
+  ✓ macOS allow: brave-search
+  ✓ Linux allow: brave-search
+  ✓ macOS allow: aws-documentation
+  ✓ Linux allow: aws-documentation
+
+[58. Memory System]
+  ✓ macOS: memory/logs dir
+  ✓ macOS: memory/projects dir
+  ✓ Linux: memory/logs dir
+  ✓ Linux: memory/projects dir
+  ✓ macOS: MEMORY.md created
+  ✓ Linux: MEMORY.md created
+
+[59. Enhanced CLAUDE.md — Both Platforms]
+  ✓ macOS CLAUDE.md: memory section
+  ✓ macOS CLAUDE.md: self-maintenance
+  ✓ macOS CLAUDE.md: sequential thinking
+  ✓ Linux CLAUDE.md: memory section
+  ✓ Linux CLAUDE.md: self-maintenance
+
+[60. ClawHub Skills — Both Platforms]
+  ✓ macOS skill: memory-setup
+  ✓ Linux skill: memory-setup
+  ✓ macOS skill: auto-updater
+  ✓ Linux skill: auto-updater
+  ✓ macOS skill: feishu-bridge
+  ✓ Linux skill: feishu-bridge
+  ✓ macOS skill: wecom
+  ✓ Linux skill: wecom
+  ✓ macOS skill: playwright-cli
+  ✓ Linux skill: playwright-cli
+  ✓ macOS skill: clawbrowser
+  ✓ Linux skill: clawbrowser
+  ✓ macOS skill: clawhub
+  ✓ Linux skill: clawhub
+
+[61. Final Regression]
+  ✓ setup.sh: syntax OK
+  ✓ install-linux.sh: syntax OK
+  ✓ fix.sh: syntax OK
+  ✓ backup-restore.sh: syntax OK
+  ✓ setup.sh: shellcheck clean
+  ✓ install-linux.sh: shellcheck clean
+
 ═══════════════════════════════════════
-  Passed: 254  Failed: 0  Skipped: 0
+  Passed: 306  Failed: 0  Skipped: 0
 ═══════════════════════════════════════
 
 ALL TESTS PASSED

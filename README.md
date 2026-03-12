@@ -333,11 +333,11 @@ npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
 ## Testing
 
 ```bash
-# Run the full test suite (254 test cases)
+# Run the full test suite (306 test cases)
 bash tests/run_tests.sh
 ```
 
-55 test categories covering unit tests, functional tests, E2E tests, integration tests, and regression tests. See [tests/TESTING.md](tests/TESTING.md) for full documentation.
+61 test categories covering unit tests, functional tests, E2E tests, integration tests, and regression tests. See [tests/TESTING.md](tests/TESTING.md) for full documentation.
 
 ## License
 

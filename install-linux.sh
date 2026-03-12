@@ -346,6 +346,7 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
         "allow": ["Bash", "WebFetch", "Write", "Edit",
                   "mcp__chrome-devtools__*", "mcp__playwright__*",
                   "mcp__github__*", "mcp__filesystem__*",
+                  "mcp__sequential-thinking__*", "mcp__brave-search__*",
                   "mcp__aws-documentation__*"],
         "deny": ["Bash(rm -rf /*)", "Bash(rm -rf /)", "Bash(sudo rm *)",
                  "Bash(mkfs*)", "Bash(dd if=*)"]
@@ -374,6 +375,15 @@ cat > "$HOME/.mcp.json" <<MCP_EOF
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@anthropic-ai/mcp-server-filesystem@latest", "${HOME}/Documents", "${HOME}/.openclaw/workspace"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-sequential-thinking@latest"]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "brave-search-mcp@latest"],
+      "env": { "BRAVE_API_KEY": "" }
     },
     "aws-documentation": {
       "command": "uvx",
@@ -426,6 +436,62 @@ cat > "$OPENCLAW_DIR/openclaw.json" <<OC_EOF
 }
 OC_EOF
 success "OpenClaw config written"
+
+# Workspace + memory system
+mkdir -p "$OPENCLAW_DIR/workspace/memory"/{logs,projects,groups}
+for md in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md MEMORY.md; do
+    [ -f "$OPENCLAW_DIR/workspace/$md" ] || touch "$OPENCLAW_DIR/workspace/$md"
+done
+
+cat > "$OPENCLAW_DIR/workspace/CLAUDE.md" <<'CLAUDEMD_EOF'
+# OpenClaw Workspace
+
+## System
+OpenClaw on Amazon Bedrock. Memory is persistent — files survive restarts.
+
+## Rules
+- Respond in user's preferred language
+- Read before edit, verify after change
+- Write important context to MEMORY.md for future sessions
+- Check MEMORY.md at session start
+
+## Memory
+- **MEMORY.md** — Long-term facts, preferences, project context
+- **memory/logs/** — Daily logs
+- **memory/projects/** — Per-project notes
+
+## Tools
+Claude Code, Chrome DevTools (9222), Playwright, GitHub MCP, Filesystem MCP,
+Sequential Thinking, Brave Search, AWS Docs
+
+## Self-Maintenance
+- `openclaw doctor` — diagnose
+- Skills auto-update daily via auto-updater
+- Guardian monitors every 60s
+
+## Channels
+Discord, Telegram, Slack, Lark, WeCom, WeChat, WhatsApp
+Control UI: http://127.0.0.1:18789
+CLAUDEMD_EOF
+success "Workspace + memory + CLAUDE.md created"
+
+# Install ClawHub community skills
+info "Installing ClawHub skills..."
+CLAWHUB_SKILLS=(
+    "openclaw/skills/feishu-bridge"
+    "openclaw/skills/wecom"
+    "openclaw/skills/playwright-cli"
+    "openclaw/skills/clawbrowser"
+    "openclaw/skills/clawhub"
+    "openclaw/skills/memory-setup"
+    "openclaw/skills/auto-updater"
+)
+for skill_slug in "${CLAWHUB_SKILLS[@]}"; do
+    skill_short="${skill_slug##*/}"
+    npx clawhub install "$skill_slug" --dir "$OPENCLAW_DIR/skills" 2>/dev/null \
+        && success "Skill: $skill_short" \
+        || warn "Skill failed: $skill_short"
+done
 
 # ============================================================================
 step 7 "Set up systemd services"

@@ -725,6 +725,73 @@ if command -v shellcheck >/dev/null 2>&1; then
         [ "$SC" -eq 0 ] && pass "$f: shellcheck clean (final)" || fail "$f: shellcheck $SC warnings"
     done
 fi
+
+# ============================================================================
+section "56. MCP Parity — All 7 Servers on Both Platforms"
+# ============================================================================
+
+for mcp in chrome-devtools playwright github filesystem sequential-thinking brave-search aws-documentation; do
+    MAC=$(grep -c "$mcp" "$SCRIPT_DIR/setup.sh" || true)
+    LIN=$(grep -c "$mcp" "$SCRIPT_DIR/install-linux.sh" || true)
+    if [ "$MAC" -gt 0 ] && [ "$LIN" -gt 0 ]; then
+        pass "MCP parity: $mcp"
+    else
+        fail "MCP parity: $mcp (mac=$MAC, linux=$LIN)"
+    fi
+done
+
+# ============================================================================
+section "57. Claude Code Permissions — All MCP Allowed"
+# ============================================================================
+
+for mcp in chrome-devtools playwright github filesystem sequential-thinking brave-search aws-documentation; do
+    grep -q "mcp__${mcp}__" "$SCRIPT_DIR/setup.sh" && pass "macOS allow: $mcp" || fail "macOS allow: $mcp missing"
+    grep -q "mcp__${mcp}__\|mcp__${mcp}" "$SCRIPT_DIR/install-linux.sh" && pass "Linux allow: $mcp" || fail "Linux allow: $mcp missing"
+done
+
+# ============================================================================
+section "58. Memory System"
+# ============================================================================
+
+grep -q 'memory/logs' "$SCRIPT_DIR/setup.sh" && pass "macOS: memory/logs dir" || fail "macOS: memory/logs missing"
+grep -q 'memory/projects' "$SCRIPT_DIR/setup.sh" && pass "macOS: memory/projects dir" || fail "macOS: memory/projects missing"
+grep -q 'memory/logs' "$SCRIPT_DIR/install-linux.sh" && pass "Linux: memory/logs dir" || fail "Linux: memory/logs missing"
+grep -q 'memory/projects' "$SCRIPT_DIR/install-linux.sh" && pass "Linux: memory/projects dir" || fail "Linux: memory/projects missing"
+grep -q 'MEMORY.md' "$SCRIPT_DIR/setup.sh" && pass "macOS: MEMORY.md created" || fail "macOS: MEMORY.md missing"
+grep -q 'MEMORY.md' "$SCRIPT_DIR/install-linux.sh" && pass "Linux: MEMORY.md created" || fail "Linux: MEMORY.md missing"
+
+# ============================================================================
+section "59. Enhanced CLAUDE.md — Both Platforms"
+# ============================================================================
+
+grep -q 'Memory System\|Memory' "$SCRIPT_DIR/setup.sh" && pass "macOS CLAUDE.md: memory section" || fail "macOS CLAUDE.md: no memory"
+grep -q 'Self-Maintenance\|auto-update' "$SCRIPT_DIR/setup.sh" && pass "macOS CLAUDE.md: self-maintenance" || fail "macOS CLAUDE.md: no maintenance"
+grep -q 'Sequential Thinking' "$SCRIPT_DIR/setup.sh" && pass "macOS CLAUDE.md: sequential thinking" || fail "macOS CLAUDE.md: no seq thinking"
+grep -q 'Memory' "$SCRIPT_DIR/install-linux.sh" && pass "Linux CLAUDE.md: memory section" || fail "Linux CLAUDE.md: no memory"
+grep -q 'auto-update' "$SCRIPT_DIR/install-linux.sh" && pass "Linux CLAUDE.md: self-maintenance" || fail "Linux CLAUDE.md: no maintenance"
+
+# ============================================================================
+section "60. ClawHub Skills — Both Platforms"
+# ============================================================================
+
+for skill in memory-setup auto-updater feishu-bridge wecom playwright-cli clawbrowser clawhub; do
+    grep -q "$skill" "$SCRIPT_DIR/setup.sh" && pass "macOS skill: $skill" || fail "macOS skill: $skill missing"
+    grep -q "$skill" "$SCRIPT_DIR/install-linux.sh" && pass "Linux skill: $skill" || fail "Linux skill: $skill missing"
+done
+
+# ============================================================================
+section "61. Final Regression"
+# ============================================================================
+
+for f in setup.sh install-linux.sh fix.sh backup-restore.sh; do
+    bash -n "$SCRIPT_DIR/$f" 2>/dev/null && pass "$f: syntax OK" || fail "$f: BROKEN"
+done
+if command -v shellcheck >/dev/null 2>&1; then
+    for f in setup.sh install-linux.sh; do
+        SC=$(shellcheck -S warning -e SC2034,SC1091,SC2086,SC2129,SC2016,SC2046,SC2015,SC2181 "$SCRIPT_DIR/$f" 2>&1 | grep -c "^In " || true)
+        [ "$SC" -eq 0 ] && pass "$f: shellcheck clean" || fail "$f: shellcheck $SC warnings"
+    done
+fi
 # Summary
 # ============================================================================
 echo ""
