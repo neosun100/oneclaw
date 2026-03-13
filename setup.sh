@@ -102,8 +102,8 @@ check_command() {
 # ============================================================================
 echo -e "\n${CYAN}${BOLD}"
 echo "  ╔══════════════════════════════════════════════════╗"
-echo "  ║       OnClick-Claw: One-Click Setup Script       ║"
-echo "  ║   Claude Code + OpenClaw + AWS on Mac Silicon    ║"
+echo "  ║       All in One Claw: One-Click Setup Script       ║"
+echo "  ║   Claude Code + OpenClaw + AWS — All in One    ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -182,31 +182,104 @@ step 2 "配置 AWS 凭证 + Claude Code"
 echo -e "${BOLD}接下来需要输入一些信息来配置环境。${NC}"
 echo -e "所有信息只保存在你的电脑上，不会上传到任何地方。\n"
 
-# AWS credentials
-echo -e "${CYAN}--- AWS 凭证（用于访问 Bedrock Claude 模型） ---${NC}"
-echo -e "  ${BOLD}没有 AWS 账号？${NC}找帮你装机的人要一组 Access Key 和 Secret Key。"
-echo -e "  ${BOLD}已有账号但没有密钥？${NC}登录 AWS Console → IAM → Users → 你的用户 → Security credentials → Create access key"
+# --- AWS Authentication Method Selection ---
+echo -e "${CYAN}--- AWS 认证方式（用于访问 Bedrock Claude 模型） ---${NC}"
 echo ""
-echo -e "  ${BOLD}${YELLOW}IAM 用户需要以下权限（缺一不可）：${NC}"
-echo -e "  ${GREEN}bedrock:InvokeModel${NC}              — 调用模型（Claude Code + OpenClaw 核心）"
-echo -e "  ${GREEN}bedrock:InvokeModelWithResponseStream${NC} — 流式调用（实时对话）"
-echo -e "  ${GREEN}bedrock:ListFoundationModels${NC}     — 列出可用模型"
-echo -e "  ${GREEN}bedrock:GetFoundationModel${NC}       — 查询模型详情"
-echo -e ""
-echo -e "  ${BOLD}最简方式：${NC}给 IAM 用户附加 AWS 托管策略 ${GREEN}AmazonBedrockFullAccess${NC}"
-echo -e "  ${BOLD}最小权限：${NC}只需上面 4 个 Action，Resource 设为 ${GREEN}arn:aws:bedrock:*::foundation-model/*${NC}"
-echo -e ""
-echo -e "  ${YELLOW}还需要在 Bedrock 控制台开启模型访问：${NC}"
-echo -e "  AWS Console → Bedrock → Model access → 勾选 Anthropic Claude 全系列 → Save"
+echo -e "  ${BOLD}请选择 AWS 认证方式：${NC}"
 echo ""
-ask_secret "请输入 AWS Access Key ID" AWS_AK
-ask_secret "请输入 AWS Secret Access Key（输入时不会显示）" AWS_SK true
+echo -e "  ${GREEN}1${NC}) ${BOLD}Access Key + Secret Key${NC}（最简单，适合个人用户）"
+echo -e "     → 输入一组 IAM 用户的 AK/SK，保存到 ~/.aws/credentials"
+echo ""
+echo -e "  ${GREEN}2${NC}) ${BOLD}AWS SSO / IAM Identity Center${NC}（企业推荐）"
+echo -e "     → 通过浏览器登录，自动获取临时凭证，更安全"
+echo ""
+echo -e "  ${GREEN}3${NC}) ${BOLD}使用已有的 AWS Profile${NC}（已配置过 aws configure 的用户）"
+echo -e "     → 直接复用 ~/.aws/credentials 或 ~/.aws/config 中的 profile"
+echo ""
+echo -e "  ${GREEN}4${NC}) ${BOLD}跳过${NC}（已有 ~/.aws/credentials 且确认可用）"
+echo ""
+
+# Detect existing credentials
+AWS_AUTH_MODE=""
+EXISTING_PROFILES=""
+if [ -f "$HOME/.aws/credentials" ] || [ -f "$HOME/.aws/config" ]; then
+    EXISTING_PROFILES=$(grep '^\[' "$HOME/.aws/credentials" "$HOME/.aws/config" 2>/dev/null | sed 's/.*\[//;s/\]//' | sed 's/^profile //' | sort -u | tr '\n' ', ' | sed 's/,$//')
+    if [ -n "$EXISTING_PROFILES" ]; then
+        echo -e "  ${YELLOW}检测到已有 AWS 配置，可用 profile: ${GREEN}${EXISTING_PROFILES}${NC}"
+        echo ""
+    fi
+fi
+
+while true; do
+    echo -en "${YELLOW}请选择 [1/2/3/4]: ${NC}"
+    read -r AUTH_CHOICE </dev/tty
+    case "$AUTH_CHOICE" in
+        1) AWS_AUTH_MODE="static-keys"; break ;;
+        2) AWS_AUTH_MODE="sso"; break ;;
+        3) AWS_AUTH_MODE="profile"; break ;;
+        4) AWS_AUTH_MODE="skip"; break ;;
+        *) warn "请输入 1、2、3 或 4" ;;
+    esac
+done
+
+# --- Collect credentials based on auth mode ---
+AWS_AK=""
+AWS_SK=""
+AWS_PROFILE_NAME="default"
+AWS_SSO_START_URL=""
+AWS_SSO_REGION=""
+AWS_SSO_ACCOUNT_ID=""
+AWS_SSO_ROLE_NAME=""
+
+case "$AWS_AUTH_MODE" in
+    static-keys)
+        echo ""
+        echo -e "  ${BOLD}没有 AWS 账号？${NC}找帮你装机的人要一组 Access Key 和 Secret Key。"
+        echo -e "  ${BOLD}已有账号但没有密钥？${NC}登录 AWS Console → IAM → Users → 你的用户 → Security credentials → Create access key"
+        echo ""
+        echo -e "  ${BOLD}${YELLOW}IAM 用户需要以下权限（缺一不可）：${NC}"
+        echo -e "  ${GREEN}bedrock:InvokeModel${NC}              — 调用模型"
+        echo -e "  ${GREEN}bedrock:InvokeModelWithResponseStream${NC} — 流式调用"
+        echo -e "  ${GREEN}bedrock:ListFoundationModels${NC}     — 列出可用模型"
+        echo -e "  ${GREEN}bedrock:GetFoundationModel${NC}       — 查询模型详情"
+        echo ""
+        echo -e "  ${BOLD}最简方式：${NC}附加 AWS 托管策略 ${GREEN}AmazonBedrockFullAccess${NC}"
+        echo ""
+        ask_secret "请输入 AWS Access Key ID" AWS_AK
+        ask_secret "请输入 AWS Secret Access Key（输入时不会显示）" AWS_SK true
+        ;;
+    sso)
+        echo ""
+        echo -e "  ${BOLD}AWS SSO 配置${NC}（需要管理员提供以下信息）："
+        echo ""
+        ask_secret "SSO Start URL（如 https://my-org.awsapps.com/start）" AWS_SSO_START_URL
+        ask_optional "SSO Region（SSO 服务所在区域）" AWS_SSO_REGION "us-east-1"
+        ask_secret "AWS Account ID（12 位数字）" AWS_SSO_ACCOUNT_ID
+        ask_secret "SSO Role Name（如 AdministratorAccess、BedrockUser）" AWS_SSO_ROLE_NAME
+        ask_optional "Profile 名称" AWS_PROFILE_NAME "bedrock-sso"
+        ;;
+    profile)
+        echo ""
+        if [ -n "$EXISTING_PROFILES" ]; then
+            echo -e "  已有 profile: ${GREEN}${EXISTING_PROFILES}${NC}"
+        fi
+        ask_optional "要使用的 AWS Profile 名称" AWS_PROFILE_NAME "default"
+        ;;
+    skip)
+        info "跳过 AWS 凭证配置，使用已有配置"
+        ;;
+esac
 
 echo ""
 echo -e "${CYAN}--- AWS 区域配置 ---${NC}"
 echo -e "  默认使用 ${GREEN}us-west-2${NC}（美国西部-俄勒冈），直接按回车即可"
 echo -e "  其他常用区域：us-east-1（美东）、eu-west-1（欧洲）、ap-northeast-1（东京）"
 ask_optional "AWS Bedrock 区域" AWS_BEDROCK_REGION "us-west-2"
+
+echo ""
+echo -e "  ${YELLOW}请确认已在 Bedrock 控制台开启模型访问：${NC}"
+echo -e "  AWS Console → Bedrock → Model access → 勾选 Anthropic Claude 全系列 → Save"
+echo ""
 
 # Claude Code uses the same region — derive inference profile prefix
 CC_BEDROCK_REGION="$AWS_BEDROCK_REGION"
@@ -241,43 +314,186 @@ echo -en "${YELLOW}Discord Webhook URL（用于异常告警，没有就直接回
 read -r DISCORD_WEBHOOK_URL </dev/tty
 DISCORD_WEBHOOK_URL="${DISCORD_WEBHOOK_URL:-}"
 
+# Lark/Feishu (optional)
+echo -e "\n${CYAN}--- 飞书/Lark 机器人（可选，按回车跳过） ---${NC}"
+echo -e "  OpenClaw 可以连接飞书/Lark，让你在飞书里和 AI 对话。"
+echo -e "  需要在飞书开放平台创建自建应用并添加机器人能力。\n"
+echo -e "  ${BOLD}如何获取：${NC}"
+echo -e "  1. 打开 ${CYAN}https://open.feishu.cn/app${NC} → 创建自建应用"
+echo -e "  2. 添加「机器人」能力 → 获取 App ID 和 App Secret"
+echo -e "  3. 权限管理 → 开通 ${GREEN}im:message${NC} 和 ${GREEN}im:message.create${NC}"
+echo -e "  4. 事件订阅 → 添加 ${GREEN}im.message.receive_v1${NC}\n"
+echo -en "${YELLOW}飞书 App ID（没有就直接回车）: ${NC}"
+read -r LARK_APP_ID </dev/tty
+LARK_APP_ID="${LARK_APP_ID:-}"
+if [ -n "$LARK_APP_ID" ]; then
+    echo -en "${YELLOW}飞书 App Secret: ${NC}"
+    read -rs LARK_APP_SECRET </dev/tty; echo ""
+    LARK_APP_SECRET="${LARK_APP_SECRET:-}"
+else
+    LARK_APP_SECRET=""
+fi
+
+# Telegram (optional)
+echo -e "\n${CYAN}--- Telegram 机器人（可选，按回车跳过） ---${NC}"
+echo -e "  ${BOLD}如何获取：${NC}在 Telegram 中搜索 ${GREEN}@BotFather${NC} → /newbot → 复制 Token\n"
+echo -en "${YELLOW}Telegram Bot Token（没有就直接回车）: ${NC}"
+read -r TELEGRAM_BOT_TOKEN </dev/tty
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+
+# Slack (optional)
+echo -e "\n${CYAN}--- Slack 机器人（可选，按回车跳过） ---${NC}"
+echo -e "  ${BOLD}如何获取：${NC}"
+echo -e "  1. 打开 ${CYAN}https://api.slack.com/apps${NC} → Create New App"
+echo -e "  2. OAuth & Permissions → Bot Token Scopes → 添加 ${GREEN}chat:write${NC}, ${GREEN}channels:history${NC}"
+echo -e "  3. Install to Workspace → 复制 Bot User OAuth Token\n"
+echo -en "${YELLOW}Slack Bot Token（没有就直接回车）: ${NC}"
+read -r SLACK_BOT_TOKEN </dev/tty
+SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
+
+# WeCom / 企业微信 (optional)
+echo -e "\n${CYAN}--- 企业微信 WeCom 机器人（可选，按回车跳过） ---${NC}"
+echo -e "  ${BOLD}如何获取：${NC}"
+echo -e "  1. 登录 ${CYAN}https://work.weixin.qq.com${NC} → 应用管理 → 创建应用"
+echo -e "  2. 获取 ${GREEN}Corp ID${NC}（企业信息页）、${GREEN}Agent ID${NC} 和 ${GREEN}Secret${NC}（应用详情页）"
+echo -e "  3. 或使用群机器人 Webhook: 群聊 → 添加群机器人 → 复制 Webhook URL\n"
+echo -en "${YELLOW}企业微信 Corp ID（没有就直接回车）: ${NC}"
+read -r WECOM_CORP_ID </dev/tty
+WECOM_CORP_ID="${WECOM_CORP_ID:-}"
+if [ -n "$WECOM_CORP_ID" ]; then
+    echo -en "${YELLOW}企业微信 Agent ID: ${NC}"
+    read -r WECOM_AGENT_ID </dev/tty
+    WECOM_AGENT_ID="${WECOM_AGENT_ID:-}"
+    echo -en "${YELLOW}企业微信 Secret: ${NC}"
+    read -rs WECOM_SECRET </dev/tty; echo ""
+    WECOM_SECRET="${WECOM_SECRET:-}"
+else
+    WECOM_AGENT_ID=""
+    WECOM_SECRET=""
+fi
+echo -en "${YELLOW}企业微信 Webhook URL（群机器人，没有就直接回车）: ${NC}"
+read -r WECOM_WEBHOOK_URL </dev/tty
+WECOM_WEBHOOK_URL="${WECOM_WEBHOOK_URL:-}"
+
+# WeChat / 个人微信 (optional, via Wechaty)
+echo -e "\n${CYAN}--- 个人微信（可选，实验性，按回车跳过） ---${NC}"
+echo -e "  通过 Wechaty 桥接个人微信，安装后需扫码登录。"
+echo -e "  ${YELLOW}注意：个人微信接口为非官方，有封号风险，建议使用小号。${NC}"
+echo -e "  安装后运行 ${CYAN}openclaw connect wechat${NC} 扫码登录。\n"
+echo -en "${YELLOW}是否安装个人微信桥接？[y/N]: ${NC}"
+read -r INSTALL_WECHAT </dev/tty
+INSTALL_WECHAT="${INSTALL_WECHAT:-N}"
+
+# WhatsApp (optional, native via openclaw onboard)
+echo -e "\n${CYAN}--- WhatsApp（可选，按回车跳过） ---${NC}"
+echo -e "  OpenClaw 原生支持 WhatsApp，安装后通过 Web 控制台扫码连接。"
+echo -e "  或运行 ${CYAN}openclaw connect whatsapp${NC} 扫码。\n"
+echo -en "${YELLOW}是否启用 WhatsApp 支持？[y/N]: ${NC}"
+read -r ENABLE_WHATSAPP </dev/tty
+ENABLE_WHATSAPP="${ENABLE_WHATSAPP:-N}"
+
 # OpenClaw gateway token — auto-generate, user doesn't need to know
 GATEWAY_TOKEN=$(openssl rand -hex 24)
+SSO_LOGIN_PENDING=false
 info "已自动生成 Gateway 安全令牌"
 
-# --- Write AWS credentials ---
+# --- Write AWS credentials based on auth mode ---
 info "Writing AWS credentials..."
 mkdir -p "$HOME/.aws"
 
-if command -v aws >/dev/null 2>&1; then
-    aws configure set aws_access_key_id "$AWS_AK" --profile default
-    aws configure set aws_secret_access_key "$AWS_SK" --profile default
-    aws configure set region "$AWS_BEDROCK_REGION" --profile default
-    aws configure set output json --profile default
-    success "AWS credentials set via 'aws configure set' (default profile only, other profiles untouched)"
-else
-    # aws cli not yet installed — write files directly (only [default] section)
-    if [ ! -f "$HOME/.aws/credentials" ] || ! grep -q "\[default\]" "$HOME/.aws/credentials" 2>/dev/null; then
-        cat > "$HOME/.aws/credentials" <<EOF
-[default]
+case "$AWS_AUTH_MODE" in
+    static-keys)
+        if command -v aws >/dev/null 2>&1; then
+            aws configure set aws_access_key_id "$AWS_AK" --profile "$AWS_PROFILE_NAME"
+            aws configure set aws_secret_access_key "$AWS_SK" --profile "$AWS_PROFILE_NAME"
+            aws configure set region "$AWS_BEDROCK_REGION" --profile "$AWS_PROFILE_NAME"
+            aws configure set output json --profile "$AWS_PROFILE_NAME"
+            success "AWS credentials set via 'aws configure set' (profile: ${AWS_PROFILE_NAME})"
+        else
+            # aws cli not yet installed — write files directly
+            if [ ! -f "$HOME/.aws/credentials" ] || ! grep -q "\[${AWS_PROFILE_NAME}\]" "$HOME/.aws/credentials" 2>/dev/null; then
+                cat >> "$HOME/.aws/credentials" <<EOF
+
+[${AWS_PROFILE_NAME}]
 aws_access_key_id = ${AWS_AK}
 aws_secret_access_key = ${AWS_SK}
 EOF
-        success "AWS credentials written to ~/.aws/credentials"
-    else
-        warn "~/.aws/credentials [default] already exists, not overwriting (aws cli not available for safe merge)"
-    fi
+                success "AWS credentials written to ~/.aws/credentials (profile: ${AWS_PROFILE_NAME})"
+            else
+                warn "$HOME/.aws/credentials [${AWS_PROFILE_NAME}] already exists, not overwriting"
+            fi
 
-    if [ ! -f "$HOME/.aws/config" ] || ! grep -q "\[default\]" "$HOME/.aws/config" 2>/dev/null; then
-        cat > "$HOME/.aws/config" <<EOF
-[default]
+            if [ ! -f "$HOME/.aws/config" ] || ! grep -q "\[${AWS_PROFILE_NAME}\]" "$HOME/.aws/config" 2>/dev/null; then
+                CONFIG_SECTION="[${AWS_PROFILE_NAME}]"
+                [ "$AWS_PROFILE_NAME" != "default" ] && CONFIG_SECTION="[profile ${AWS_PROFILE_NAME}]"
+                cat >> "$HOME/.aws/config" <<EOF
+
+${CONFIG_SECTION}
 region = ${AWS_BEDROCK_REGION}
 output = json
 EOF
-        success "AWS config written to ~/.aws/config"
-    else
-        warn "~/.aws/config [default] already exists, not overwriting (aws cli not available for safe merge)"
-    fi
+                success "AWS config written to ~/.aws/config"
+            fi
+        fi
+        ;;
+    sso)
+        # Write SSO profile to ~/.aws/config
+        CONFIG_SECTION="[${AWS_PROFILE_NAME}]"
+        [ "$AWS_PROFILE_NAME" != "default" ] && CONFIG_SECTION="[profile ${AWS_PROFILE_NAME}]"
+        
+        # Remove existing profile section if present, then append
+        if grep -q "\[.*${AWS_PROFILE_NAME}\]" "$HOME/.aws/config" 2>/dev/null; then
+            cp "$HOME/.aws/config" "$HOME/.aws/config.bak.$(date +%s)"
+            warn "已有 ${AWS_PROFILE_NAME} profile 已备份"
+        fi
+        
+        cat >> "$HOME/.aws/config" <<EOF
+
+${CONFIG_SECTION}
+sso_start_url = ${AWS_SSO_START_URL}
+sso_region = ${AWS_SSO_REGION}
+sso_account_id = ${AWS_SSO_ACCOUNT_ID}
+sso_role_name = ${AWS_SSO_ROLE_NAME}
+region = ${AWS_BEDROCK_REGION}
+output = json
+EOF
+        success "AWS SSO profile written to ~/.aws/config (profile: ${AWS_PROFILE_NAME})"
+        
+        echo ""
+        echo -e "${YELLOW}${BOLD}接下来需要通过浏览器完成 SSO 登录：${NC}"
+        echo -e "  系统会自动打开浏览器，请在浏览器中完成登录授权。"
+        echo ""
+        
+        if command -v aws >/dev/null 2>&1; then
+            aws sso login --profile "$AWS_PROFILE_NAME" || {
+                warn "SSO 登录失败，请稍后手动运行: aws sso login --profile ${AWS_PROFILE_NAME}"
+            }
+        else
+            warn "AWS CLI 尚未安装，SSO 登录将在安装 AWS CLI 后进行"
+            SSO_LOGIN_PENDING=true
+        fi
+        ;;
+    profile)
+        info "使用已有 profile: ${AWS_PROFILE_NAME}"
+        # Ensure region is set for the profile
+        if command -v aws >/dev/null 2>&1; then
+            CURRENT_REGION=$(aws configure get region --profile "$AWS_PROFILE_NAME" 2>/dev/null || echo "")
+            if [ -z "$CURRENT_REGION" ]; then
+                aws configure set region "$AWS_BEDROCK_REGION" --profile "$AWS_PROFILE_NAME"
+                success "已为 profile ${AWS_PROFILE_NAME} 设置区域: ${AWS_BEDROCK_REGION}"
+            else
+                info "Profile ${AWS_PROFILE_NAME} 已有区域设置: ${CURRENT_REGION}"
+            fi
+        fi
+        ;;
+    skip)
+        success "使用已有 AWS 配置"
+        ;;
+esac
+
+# Set AWS_PROFILE env var if not default
+if [ "$AWS_PROFILE_NAME" != "default" ]; then
+    export AWS_PROFILE="$AWS_PROFILE_NAME"
 fi
 
 # --- Configure Claude Code for Bedrock ---
@@ -297,6 +513,15 @@ if [ -f "$CLAUDE_DIR/settings.json" ]; then
     warn "已有 settings.json 已备份为 settings.json.bak.*"
 fi
 
+# Build env block — add AWS_PROFILE if non-default, add SSO refresh if SSO mode
+CLAUDE_ENV_EXTRA=""
+if [ "$AWS_PROFILE_NAME" != "default" ]; then
+    CLAUDE_ENV_EXTRA="$(printf '\n        "AWS_PROFILE": "%s",' "$AWS_PROFILE_NAME")"
+fi
+if [ "$AWS_AUTH_MODE" = "sso" ]; then
+    CLAUDE_ENV_EXTRA="${CLAUDE_ENV_EXTRA}$(printf '\n        "CLAUDE_CODE_AWS_AUTH_REFRESH": "sso:%s",' "$AWS_PROFILE_NAME")"
+fi
+
 cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
 {
     "\$schema": "https://json.schemastore.org/claude-code-settings.json",
@@ -304,7 +529,7 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
     "cleanupPeriodDays": 30,
     "env": {
         "CLAUDE_CODE_USE_BEDROCK": "1",
-        "AWS_REGION": "${CC_BEDROCK_REGION}",
+        "AWS_REGION": "${CC_BEDROCK_REGION}",${CLAUDE_ENV_EXTRA}
         "ANTHROPIC_MODEL": "${PROFILE_PREFIX}.anthropic.claude-opus-4-6-v1",
         "CLAUDE_CODE_SUBAGENT_MODEL": "${PROFILE_PREFIX}.anthropic.claude-sonnet-4-6",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "128000",
@@ -319,6 +544,13 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
             "Bash",
             "mcp__plugin_context7_context7__*",
             "mcp__chrome-devtools__*",
+            "mcp__playwright__*",
+            "mcp__github__*",
+            "mcp__filesystem__*",
+            "mcp__sequential-thinking__*",
+            "mcp__brave-search__*",
+            "mcp__tavily__*",
+            "mcp__docker__*",
             "mcp__aws-documentation__*",
             "WebFetch",
             "Write",
@@ -370,6 +602,43 @@ cat > "$HOME/.mcp.json" <<MCP_EOF
     "chrome-devtools": {
       "command": "npx",
       "args": ["-y", "chrome-devtools-mcp@latest", "--browserUrl", "http://localhost:9222"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-playwright@latest"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-github@latest"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-filesystem@latest", "${HOME}/Documents", "${HOME}/Desktop", "${HOME}/.openclaw/workspace"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-sequential-thinking@latest"]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "brave-search-mcp@latest"],
+      "env": {
+        "BRAVE_API_KEY": ""
+      }
+    },
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp@latest"],
+      "env": {
+        "TAVILY_API_KEY": ""
+      }
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-docker@latest"]
     },
     "aws-documentation": {
       "command": "uvx",
@@ -491,12 +760,28 @@ else
     echo -e "  ${YELLOW}安装会继续，但 Chrome 相关功能暂不可用。${NC}"
 fi
 
+# Complete pending SSO login (if AWS CLI was just installed)
+if [ "${SSO_LOGIN_PENDING:-false}" = "true" ]; then
+    echo ""
+    echo -e "${YELLOW}${BOLD}AWS CLI 已安装，现在完成 SSO 登录：${NC}"
+    aws sso login --profile "$AWS_PROFILE_NAME" || {
+        warn "SSO 登录失败，请稍后手动运行: aws sso login --profile ${AWS_PROFILE_NAME}"
+    }
+fi
+
 # Verify AWS credentials (now that AWS CLI is available)
 info "Verifying AWS credentials..."
-if aws sts get-caller-identity >/dev/null 2>&1; then
-    success "AWS credentials valid: $(aws sts get-caller-identity --query 'Account' --output text)"
+AWS_VERIFY_ARGS=""
+[ "$AWS_PROFILE_NAME" != "default" ] && AWS_VERIFY_ARGS="--profile $AWS_PROFILE_NAME"
+if aws sts get-caller-identity $AWS_VERIFY_ARGS >/dev/null 2>&1; then
+    success "AWS credentials valid: $(aws sts get-caller-identity $AWS_VERIFY_ARGS --query 'Account' --output text)"
 else
-    warn "AWS credential verification failed. You may need to fix ~/.aws/credentials later."
+    warn "AWS credential verification failed."
+    if [ "$AWS_AUTH_MODE" = "sso" ]; then
+        echo -e "  ${YELLOW}SSO 凭证可能已过期，请运行: ${CYAN}aws sso login --profile ${AWS_PROFILE_NAME}${NC}"
+    else
+        echo -e "  ${YELLOW}请检查 ~/.aws/credentials 配置是否正确${NC}"
+    fi
 fi
 
 # Verify Bedrock endpoint
@@ -507,9 +792,13 @@ case "$AWS_BEDROCK_REGION" in
     ap-*)  BEDROCK_TEST_PREFIX="ap" ;;
 esac
 
+BEDROCK_VERIFY_ARGS=""
+[ "$AWS_PROFILE_NAME" != "default" ] && BEDROCK_VERIFY_ARGS="--profile $AWS_PROFILE_NAME"
+
 if aws bedrock-runtime invoke-model \
     --model-id "${BEDROCK_TEST_PREFIX}.anthropic.claude-haiku-4-5-20251001-v1:0" \
     --region "$AWS_BEDROCK_REGION" \
+    $BEDROCK_VERIFY_ARGS \
     --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}' \
     --content-type "application/json" \
     /dev/null >/dev/null 2>&1; then
@@ -542,29 +831,37 @@ else
 fi
 
 # ============================================================================
-# Step 4.5: Ensure PATH is persistent in ~/.zshrc
+# Step 4.5: Ensure PATH is persistent in shell rc files
 # ============================================================================
 ZSHRC="$HOME/.zshrc"
+BASHRC="$HOME/.bashrc"
 touch "$ZSHRC"
 
-add_to_zshrc() {
+add_to_rc() {
     local line="$1"
-    if [[ "$line" == \#* ]]; then
-        grep -qxF "$line" "$ZSHRC" 2>/dev/null || echo "$line" >> "$ZSHRC"
-    else
-        grep -qxF "$line" "$ZSHRC" 2>/dev/null || echo "$line" >> "$ZSHRC"
+    # Add to zshrc (macOS default)
+    grep -qxF "$line" "$ZSHRC" 2>/dev/null || echo "$line" >> "$ZSHRC"
+    # Also add to bashrc if it exists (for bash users / Linux compat)
+    if [ -f "$BASHRC" ]; then
+        grep -qxF "$line" "$BASHRC" 2>/dev/null || echo "$line" >> "$BASHRC"
     fi
 }
 
-add_to_zshrc '# fnm (Fast Node Manager)'
-add_to_zshrc 'eval "$(fnm env)"'
-add_to_zshrc '# pnpm'
-add_to_zshrc 'export PNPM_HOME="$HOME/Library/pnpm"'
-add_to_zshrc 'export PATH="$PNPM_HOME:$PATH"'
-add_to_zshrc '# uv / Claude Code / local bin'
-add_to_zshrc 'export PATH="$HOME/.local/bin:$PATH"'
+add_to_rc '# fnm (Fast Node Manager)'
+add_to_rc 'eval "$(fnm env 2>/dev/null)"'
+add_to_rc '# pnpm'
+add_to_rc 'export PNPM_HOME="$HOME/Library/pnpm"'
+add_to_rc 'export PATH="$PNPM_HOME:$PATH"'
+add_to_rc '# uv / Claude Code / local bin'
+add_to_rc 'export PATH="$HOME/.local/bin:$PATH"'
 
-success "PATH 配置已写入 ~/.zshrc（新终端窗口自动生效）"
+# Persist AWS_PROFILE if non-default
+if [ "$AWS_PROFILE_NAME" != "default" ]; then
+    add_to_rc "# AWS profile for OneClaw/Bedrock"
+    add_to_rc "export AWS_PROFILE=\"${AWS_PROFILE_NAME}\""
+fi
+
+success "PATH 配置已写入 shell rc 文件（新终端窗口自动生效）"
 
 # ============================================================================
 # Step 5: Install OpenClaw
@@ -747,7 +1044,12 @@ for md_file in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md MEMOR
         touch "$OPENCLAW_DIR/workspace/$md_file"
     fi
 done
-success "Workspace markdown files created (empty)"
+
+# Memory system directories
+mkdir -p "$OPENCLAW_DIR/workspace/memory/logs"
+mkdir -p "$OPENCLAW_DIR/workspace/memory/projects"
+mkdir -p "$OPENCLAW_DIR/workspace/memory/groups"
+success "Workspace + memory system created"
 
 # Install skill-vetter from ClawHub (security skill for vetting other skills)
 info "安装 skill-vetter（技能安全审查工具）..."
@@ -762,7 +1064,7 @@ SKILLS_DIR="$OPENCLAW_DIR/workspace/skills"
 mkdir -p "$SKILLS_DIR"
 ONECLAW_TMP="/tmp/oneclaw-skills-$$"
 if git clone --depth 1 https://github.com/cncoder/oneclaw.git "$ONECLAW_TMP" 2>/dev/null; then
-    for skill_name in claude-code aws-infra chrome-devtools skill-vetting; do
+    for skill_name in claude-code aws-infra chrome-devtools skill-vetting architecture-svg; do
         if [ -d "$ONECLAW_TMP/skills/$skill_name" ]; then
             cp -r "$ONECLAW_TMP/skills/$skill_name" "$SKILLS_DIR/"
             success "Skill 已安装: $skill_name"
@@ -773,6 +1075,32 @@ else
     warn "Skills 自动安装失败（网络问题？），可稍后手动安装。"
     echo -e "  打开终端输入 ${GREEN}claude${NC}，然后说：「帮我安装 OneClaw skills」"
 fi
+
+# Install best community skills from ClawHub
+info "安装社区推荐 Skills..."
+CLAWHUB_SKILLS=(
+    # Messaging bridges
+    "openclaw/skills/feishu-bridge"
+    "openclaw/skills/wecom"
+    # Browser automation
+    "openclaw/skills/playwright-cli"
+    "openclaw/skills/clawbrowser"
+    # System
+    "openclaw/skills/clawhub"
+    "openclaw/skills/memory-setup"
+    "openclaw/skills/auto-updater"
+)
+
+# Add optional channel skills based on user choices
+if [[ "${INSTALL_WECHAT:-N}" =~ ^[Yy] ]]; then
+    CLAWHUB_SKILLS+=("aaaaqwq/agi-super-skills/wechat-channel")
+fi
+for skill_slug in "${CLAWHUB_SKILLS[@]}"; do
+    skill_short="${skill_slug##*/}"
+    npx clawhub install "$skill_slug" --dir "$OPENCLAW_DIR/skills" 2>/dev/null \
+        && success "ClawHub skill 已安装: $skill_short" \
+        || warn "ClawHub skill 安装失败: $skill_short（可稍后手动安装）"
+done
 
 # ============================================================================
 # Step 7: Guardian watchdog script
@@ -928,6 +1256,39 @@ GUARDIAN_EOF
 chmod +x "$OPENCLAW_DIR/scripts/guardian-check.sh"
 success "Guardian script written"
 
+# --- Log rotation (macOS) ---
+LOGROTATE_CONF="$OPENCLAW_DIR/scripts/logrotate.conf"
+cat > "$LOGROTATE_CONF" <<'LOGROTATE_EOF'
+# OneClaw log rotation — sourced by guardian-check.sh
+# Rotates logs > 10MB, keeps 7 copies
+LOGROTATE_EOF
+
+cat > "$OPENCLAW_DIR/scripts/rotate-logs.sh" <<'ROTATE_EOF'
+#!/bin/bash
+# rotate-logs.sh — Simple log rotation for macOS (no logrotate available)
+LOG_DIR="${HOME}/.openclaw/logs"
+MAX_SIZE=$((10 * 1024 * 1024))  # 10MB
+KEEP=7
+
+for logfile in "$LOG_DIR"/*.log; do
+    [ -f "$logfile" ] || continue
+    size=$(stat -f%z "$logfile" 2>/dev/null || stat -c%s "$logfile" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$MAX_SIZE" ]; then
+        for i in $(seq $((KEEP-1)) -1 1); do
+            [ -f "${logfile}.${i}" ] && mv "${logfile}.${i}" "${logfile}.$((i+1))"
+        done
+        cp "$logfile" "${logfile}.1"
+        : > "$logfile"
+    fi
+    # Remove old rotated logs
+    for old in "${logfile}".$(( KEEP + 1 )) "${logfile}".$(( KEEP + 2 )); do
+        rm -f "$old"
+    done
+done
+ROTATE_EOF
+chmod +x "$OPENCLAW_DIR/scripts/rotate-logs.sh"
+success "Log rotation script created"
+
 # ============================================================================
 # Step 8: LaunchAgents (auto-start on boot)
 # ============================================================================
@@ -992,6 +1353,50 @@ if [ -n "$DISCORD_BOT_TOKEN" ]; then
 PLIST_DISCORD
 fi
 
+# Add Lark/Feishu credentials if provided
+if [ -n "$LARK_APP_ID" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_LARK
+        <key>LARK_APP_ID</key>
+        <string>${LARK_APP_ID}</string>
+        <key>LARK_APP_SECRET</key>
+        <string>${LARK_APP_SECRET}</string>
+PLIST_LARK
+fi
+
+# Add Telegram bot token if provided
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_TG
+        <key>TELEGRAM_BOT_TOKEN</key>
+        <string>${TELEGRAM_BOT_TOKEN}</string>
+PLIST_TG
+fi
+
+# Add Slack bot token if provided
+if [ -n "$SLACK_BOT_TOKEN" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_SLACK
+        <key>SLACK_BOT_TOKEN</key>
+        <string>${SLACK_BOT_TOKEN}</string>
+PLIST_SLACK
+fi
+
+# Add WeCom credentials if provided
+if [ -n "$WECOM_CORP_ID" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_WECOM
+        <key>WECOM_CORP_ID</key>
+        <string>${WECOM_CORP_ID}</string>
+        <key>WECOM_AGENT_ID</key>
+        <string>${WECOM_AGENT_ID}</string>
+        <key>WECOM_SECRET</key>
+        <string>${WECOM_SECRET}</string>
+PLIST_WECOM
+fi
+if [ -n "$WECOM_WEBHOOK_URL" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_WECOM_WH
+        <key>WECOM_WEBHOOK_URL</key>
+        <string>${WECOM_WEBHOOK_URL}</string>
+PLIST_WECOM_WH
+fi
+
 cat >> "$LAUNCH_DIR/ai.openclaw.gateway.plist" <<PLIST_TAIL
     </dict>
     <key>StandardOutPath</key>
@@ -1040,6 +1445,40 @@ if [ -n "$DISCORD_BOT_TOKEN" ]; then
         <key>DISCORD_BOT_TOKEN</key>
         <string>${DISCORD_BOT_TOKEN}</string>
 PLIST_DISCORD
+fi
+
+if [ -n "$LARK_APP_ID" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.node.plist" <<PLIST_LARK2
+        <key>LARK_APP_ID</key>
+        <string>${LARK_APP_ID}</string>
+        <key>LARK_APP_SECRET</key>
+        <string>${LARK_APP_SECRET}</string>
+PLIST_LARK2
+fi
+
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.node.plist" <<PLIST_TG2
+        <key>TELEGRAM_BOT_TOKEN</key>
+        <string>${TELEGRAM_BOT_TOKEN}</string>
+PLIST_TG2
+fi
+
+if [ -n "$SLACK_BOT_TOKEN" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.node.plist" <<PLIST_SLACK2
+        <key>SLACK_BOT_TOKEN</key>
+        <string>${SLACK_BOT_TOKEN}</string>
+PLIST_SLACK2
+fi
+
+if [ -n "$WECOM_CORP_ID" ]; then
+    cat >> "$LAUNCH_DIR/ai.openclaw.node.plist" <<PLIST_WECOM2
+        <key>WECOM_CORP_ID</key>
+        <string>${WECOM_CORP_ID}</string>
+        <key>WECOM_AGENT_ID</key>
+        <string>${WECOM_AGENT_ID}</string>
+        <key>WECOM_SECRET</key>
+        <string>${WECOM_SECRET}</string>
+PLIST_WECOM2
 fi
 
 cat >> "$LAUNCH_DIR/ai.openclaw.node.plist" <<PLIST_TAIL
@@ -1141,7 +1580,8 @@ cat > "$OPENCLAW_DIR/workspace/CLAUDE.md" <<'CLAUDEMD_EOF'
 
 ## System
 
-This is an OpenClaw-managed workspace. The AI assistant runs on Amazon Bedrock (Claude models).
+This is an OpenClaw-managed workspace running on Amazon Bedrock (Claude models).
+Memory is persistent — files in this workspace survive restarts.
 
 ## Rules
 
@@ -1150,19 +1590,39 @@ This is an OpenClaw-managed workspace. The AI assistant runs on Amazon Bedrock (
 - For code tasks: read before edit, verify after change
 - Never delete files directly — move to trash instead
 - When unsure, ask for clarification
+- Write important context to MEMORY.md for future sessions
+- Check MEMORY.md at the start of each session for context
+
+## Memory System
+
+- **MEMORY.md** — Long-term facts, preferences, project context
+- **memory/logs/** — Daily interaction logs (auto-created)
+- **memory/projects/** — Per-project notes
+- Use `memorySearch` to find past context when needed
 
 ## Tools Available
 
 - **Claude Code**: Full coding agent (via ACP)
-- **Browser**: Chrome DevTools Protocol on port 9222
+- **Browser**: Chrome DevTools (port 9222) + Playwright
 - **Shell**: Execute system commands
+- **GitHub**: PR/Issue management via MCP
+- **Filesystem**: Safe local file access via MCP
+- **Sequential Thinking**: Complex reasoning chains
+- **Brave Search**: Web search via MCP
+- **AWS Docs**: AWS documentation queries
+
+## Self-Maintenance
+
+- Run `openclaw doctor` to diagnose issues
+- Skills auto-update daily via auto-updater skill
+- Check `openclaw status` for service health
+- Guardian daemon monitors every 60s
 
 ## Quick Start
 
-After setup, OpenClaw is accessible via:
 - Control UI: http://127.0.0.1:18789
-- Discord (if configured)
 - Terminal: `openclaw chat`
+- Channels: Discord, Telegram, Slack, Lark, WeCom, WeChat, WhatsApp
 CLAUDEMD_EOF
 success "CLAUDE.md written"
 
@@ -1233,7 +1693,7 @@ smoke_check "AWS CLI 可用" "aws --version"
 smoke_check "Claude Code 可用" "claude --version"
 smoke_check "OpenClaw 可用" "openclaw --version"
 smoke_check "Gateway 端口响应" "curl -s -m 3 http://127.0.0.1:18789/ -o /dev/null"
-smoke_check "AWS 凭证有效" "aws sts get-caller-identity"
+smoke_check "AWS 凭证有效" "aws sts get-caller-identity ${AWS_VERIFY_ARGS:-}"
 
 info "冒烟测试结果：${SMOKE_PASS} 通过，${SMOKE_FAIL} 未通过"
 if [ "$SMOKE_FAIL" -gt 0 ]; then
@@ -1526,6 +1986,31 @@ echo ""
 if [ -n "$DISCORD_BOT_TOKEN" ]; then
     echo -e "  Discord 机器人已配置，OpenClaw 下次启动时会自动连接。"
 fi
+
+# Auth mode specific tips
+case "$AWS_AUTH_MODE" in
+    sso)
+        echo -e "  ${YELLOW}${BOLD}SSO 提醒：${NC}SSO 凭证会过期（通常 8-12 小时），过期后运行："
+        echo -e "  ${CYAN}aws sso login --profile ${AWS_PROFILE_NAME}${NC}"
+        echo ""
+        ;;
+    profile)
+        echo -e "  ${YELLOW}使用 AWS Profile: ${GREEN}${AWS_PROFILE_NAME}${NC}"
+        echo ""
+        ;;
+esac
+
+# Show configured channels summary
+echo -e "${BOLD}已配置的消息平台：${NC}"
+[ -n "$DISCORD_BOT_TOKEN" ] && echo "  ✅ Discord"
+[ -n "$LARK_APP_ID" ] && echo "  ✅ 飞书/Lark"
+[ -n "$TELEGRAM_BOT_TOKEN" ] && echo "  ✅ Telegram"
+[ -n "$SLACK_BOT_TOKEN" ] && echo "  ✅ Slack"
+[ -n "$WECOM_CORP_ID" ] && echo "  ✅ 企业微信 WeCom"
+[ -n "$WECOM_WEBHOOK_URL" ] && echo "  ✅ 企业微信 Webhook"
+[[ "${INSTALL_WECHAT:-N}" =~ ^[Yy] ]] && echo "  ✅ 个人微信（需扫码: openclaw connect wechat）"
+[[ "${ENABLE_WHATSAPP:-N}" =~ ^[Yy] ]] && echo "  ✅ WhatsApp（需扫码: openclaw connect whatsapp）"
+echo ""
 
 # Auto-open OpenClaw control panel in browser (only if gateway is up)
 if curl -s -o /dev/null -m 2 "http://127.0.0.1:18789/" 2>/dev/null; then

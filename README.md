@@ -1,6 +1,6 @@
-# OneClaw
+# All in One Claw
 
-One-click setup for **Claude Code + OpenClaw + AWS** on Mac Apple Silicon.
+All-in-one setup for **Claude Code + OpenClaw + AWS** — Mac, Linux, and Docker.
 
 Zero technical knowledge required — open Terminal, paste one command, enter your AWS keys, done.
 
@@ -8,42 +8,70 @@ Zero technical knowledge required — open Terminal, paste one command, enter yo
 
 ## Quick Start
 
-Open **Terminal** and run:
+### macOS (Apple Silicon)
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/cncoder/oneclaw/main/setup.sh)"
 ```
 
-Or download first, then run:
+### Linux (Ubuntu/Debian/RHEL/Fedora)
 
 ```bash
-curl -O https://raw.githubusercontent.com/cncoder/oneclaw/main/setup.sh
-bash setup.sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/cncoder/oneclaw/main/install-linux.sh)"
+```
+
+### Docker
+
+```bash
+git clone --depth 1 https://github.com/cncoder/oneclaw.git && cd oneclaw
+docker compose up -d
 ```
 
 ## System Requirements
 
-- **macOS 13 (Ventura)** or later
-- **Apple Silicon** (M1 / M2 / M3 / M4) — Intel Macs are not supported
-- **16 GB RAM** recommended (8 GB minimum)
-- **~5 GB free disk space** (Node.js, Chrome, OpenClaw, etc.)
-- Internet connection during installation
+| Platform | Requirements |
+|----------|-------------|
+| **macOS** | macOS 13+, Apple Silicon (M1-M4), 16 GB RAM recommended |
+| **Linux** | Ubuntu 22.04+ / Debian 12+ / Fedora 38+ / RHEL 9+, 4 GB RAM minimum |
+| **Docker** | Docker 24+, Docker Compose v2, 4 GB RAM |
 
-## Prerequisites
+## AWS Authentication Methods
 
-| Item | Required? | Description |
-|------|-----------|-------------|
-| AWS Access Key + Secret Key | Yes | For accessing Bedrock Claude models |
-| Discord Bot Token | No | Connect OpenClaw to Discord chat |
-| Discord Webhook URL | No | Alert notifications on system errors |
+The installer supports **4 authentication methods** — choose what fits your setup:
+
+| Method | Best For | Credential Lifetime |
+|--------|----------|-------------------|
+| **1. Access Key + Secret Key** | Personal use, quick setup | Permanent (until rotated) |
+| **2. AWS SSO / IAM Identity Center** | Enterprise, teams | 8-12 hours (auto-refresh) |
+| **3. Existing AWS Profile** | Already configured `aws configure` | Depends on profile type |
+| **4. Skip** | Credentials already in `~/.aws/` | N/A |
+
+### Method 1: Static Keys (simplest)
+
+Get an Access Key from: AWS Console → IAM → Users → Security credentials → Create access key
+
+### Method 2: AWS SSO (recommended for enterprise)
+
+You'll need from your admin:
+- SSO Start URL (e.g., `https://my-org.awsapps.com/start`)
+- SSO Region, Account ID, Role Name
+
+The installer will open your browser for SSO login. Credentials auto-refresh via `CLAUDE_CODE_AWS_AUTH_REFRESH`.
+
+```bash
+# When SSO session expires (every 8-12h):
+aws sso login --profile bedrock-sso
+```
+
+### Method 3: Existing Profile
+
+If you've already run `aws configure`, just tell the installer which profile to use.
 
 ### IAM Permissions Required
 
-The AWS IAM user needs the following permissions:
+**Easiest**: Attach `AmazonBedrockFullAccess`
 
-**Easiest**: Attach the AWS managed policy `AmazonBedrockFullAccess`
-
-**Least-privilege policy** (recommended for production):
+**Least-privilege** (recommended):
 
 ```json
 {
@@ -63,7 +91,7 @@ The AWS IAM user needs the following permissions:
 }
 ```
 
-> **You also need to enable model access in the Bedrock console**: AWS Console → Bedrock → Model access → Select all Anthropic Claude models → Save changes
+> **Enable model access**: AWS Console → Bedrock → Model access → Select all Anthropic Claude models → Save
 
 ## What Gets Installed
 
@@ -74,9 +102,22 @@ The AWS IAM user needs the following permissions:
 - **AWS CLI** — AWS command-line tools
 - **Claude Code** — AI coding assistant (via Bedrock)
 - **OpenClaw** — AI Agent framework (Gateway + Node)
-- **MCP Servers** — Chrome DevTools, AWS Documentation
+- **9 MCP Servers** — Chrome DevTools, Playwright, GitHub, Filesystem, Sequential Thinking, Brave Search, Tavily, Docker, AWS Documentation
+- **13 Skills** — 5 bundled + 8 from ClawHub (memory, auto-updater, browser, messaging bridges)
+- **Memory System** — Persistent long-term memory across sessions
+- **Auto-Updater** — Self-updating skills and OpenClaw core
 - **Guardian Daemon** — Health check every 60s + auto-repair
-- **LaunchAgents** — Auto-start on boot
+- **LaunchAgents / systemd** — Auto-start on boot
+
+## Post-Install: Configure API Keys
+
+After installation, run the key wizard to enable MCP servers that need API keys:
+
+```bash
+bash configure-keys.sh
+```
+
+This configures: GitHub Token, Brave Search API Key, Tavily API Key. All optional — unconfigured MCPs are simply inactive.
 
 ## Usage
 
@@ -167,9 +208,15 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/cncoder/oneclaw/main/fix
 ### Option 5: Check Logs
 
 ```bash
+# macOS
 tail -50 ~/.openclaw/logs/gateway.log      # Gateway log
 tail -50 ~/.openclaw/logs/gateway.err.log  # Gateway error log
 tail -50 ~/.openclaw/logs/guardian.log     # Guardian daemon log
+
+# Linux (systemd)
+journalctl --user -u openclaw-gateway -f   # Gateway log (live)
+journalctl --user -u openclaw-node -f      # Node log (live)
+systemctl --user status openclaw-gateway   # Service status
 ```
 
 ### Option 6: Reinstall
@@ -186,6 +233,7 @@ The `skills/` directory in this repo contains four pre-built Skills that signifi
 | `aws-infra` | AWS infrastructure queries, auditing, and monitoring via AWS CLI — read-only by default, write actions require confirmation |
 | `chrome-devtools` | Browser automation via Chrome DevTools Protocol (CDP): UI verification, web scraping, screenshot-based debugging, frontend testing |
 | `skill-vetting` | Security review tool for vetting third-party Skills from ClawHub before installation, with automated scanner and prompt injection defense |
+| `architecture-svg` | Generate professional dark-theme SVG architecture diagrams for GitHub README — renders natively, no image hosting needed |
 
 ### Installation
 
@@ -248,6 +296,8 @@ npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
 
 ## File Layout
 
+### macOS
+
 ```
 ~/Documents/OneClaw/
 ├── 一键修复.command             One-click repair (double-click to run)
@@ -272,6 +322,35 @@ npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
 ├── ai.openclaw.node.plist      Node auto-start
 └── ai.openclaw.guardian.plist  Guardian daemon auto-start
 ```
+
+### Linux
+
+```
+~/.aws/                                     AWS credentials
+~/.claude/settings.json                     Claude Code config
+~/.mcp.json                                 MCP server config
+~/.openclaw/
+├── openclaw.json                           OpenClaw main config
+├── chrome-profile/                         Chromium CDP data
+├── logs/                                   All logs
+├── scripts/guardian-check.sh               Guardian script
+└── workspace/                              OpenClaw workspace
+~/.config/systemd/user/
+├── openclaw-chrome.service                 Chromium CDP service
+├── openclaw-gateway.service                Gateway service
+├── openclaw-node.service                   Node service
+├── openclaw-guardian.service               Guardian oneshot
+└── openclaw-guardian.timer                 Guardian 60s timer
+```
+
+## Testing
+
+```bash
+# Run the full test suite (337 test cases)
+bash tests/run_tests.sh
+```
+
+66 test categories covering unit tests, functional tests, E2E tests, integration tests, and regression tests. See [tests/TESTING.md](tests/TESTING.md) for full documentation.
 
 ## License
 
