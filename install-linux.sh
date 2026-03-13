@@ -63,8 +63,8 @@ pkg_install() {
 # ============================================================================
 echo -e "\n${CYAN}${BOLD}"
 echo "  ╔══════════════════════════════════════════════════╗"
-echo "  ║     OneClaw: Linux Setup Script                  ║"
-echo "  ║   Claude Code + OpenClaw + AWS on Linux          ║"
+echo "  ║     All in One Claw: Linux Setup Script                  ║"
+echo "  ║   Claude Code + OpenClaw + AWS — All in One          ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -347,6 +347,7 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
                   "mcp__chrome-devtools__*", "mcp__playwright__*",
                   "mcp__github__*", "mcp__filesystem__*",
                   "mcp__sequential-thinking__*", "mcp__brave-search__*",
+                  "mcp__tavily__*", "mcp__docker__*",
                   "mcp__aws-documentation__*"],
         "deny": ["Bash(rm -rf /*)", "Bash(rm -rf /)", "Bash(sudo rm *)",
                  "Bash(mkfs*)", "Bash(dd if=*)"]
@@ -384,6 +385,15 @@ cat > "$HOME/.mcp.json" <<MCP_EOF
       "command": "npx",
       "args": ["-y", "brave-search-mcp@latest"],
       "env": { "BRAVE_API_KEY": "" }
+    },
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp@latest"],
+      "env": { "TAVILY_API_KEY": "" }
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-docker@latest"]
     },
     "aws-documentation": {
       "command": "uvx",

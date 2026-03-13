@@ -1,6 +1,6 @@
-# OneClaw
+# All in One Claw
 
-One-click setup for **Claude Code + OpenClaw + AWS** — Mac, Linux, and Docker.
+All-in-one setup for **Claude Code + OpenClaw + AWS** — Mac, Linux, and Docker.
 
 Zero technical knowledge required — open Terminal, paste one command, enter your AWS keys, done.
 
@@ -102,9 +102,22 @@ If you've already run `aws configure`, just tell the installer which profile to 
 - **AWS CLI** — AWS command-line tools
 - **Claude Code** — AI coding assistant (via Bedrock)
 - **OpenClaw** — AI Agent framework (Gateway + Node)
-- **MCP Servers** — Chrome DevTools, AWS Documentation
+- **9 MCP Servers** — Chrome DevTools, Playwright, GitHub, Filesystem, Sequential Thinking, Brave Search, Tavily, Docker, AWS Documentation
+- **13 Skills** — 5 bundled + 8 from ClawHub (memory, auto-updater, browser, messaging bridges)
+- **Memory System** — Persistent long-term memory across sessions
+- **Auto-Updater** — Self-updating skills and OpenClaw core
 - **Guardian Daemon** — Health check every 60s + auto-repair
-- **LaunchAgents** — Auto-start on boot
+- **LaunchAgents / systemd** — Auto-start on boot
+
+## Post-Install: Configure API Keys
+
+After installation, run the key wizard to enable MCP servers that need API keys:
+
+```bash
+bash configure-keys.sh
+```
+
+This configures: GitHub Token, Brave Search API Key, Tavily API Key. All optional — unconfigured MCPs are simply inactive.
 
 ## Usage
 
@@ -333,11 +346,11 @@ npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
 ## Testing
 
 ```bash
-# Run the full test suite (306 test cases)
+# Run the full test suite (337 test cases)
 bash tests/run_tests.sh
 ```
 
-61 test categories covering unit tests, functional tests, E2E tests, integration tests, and regression tests. See [tests/TESTING.md](tests/TESTING.md) for full documentation.
+66 test categories covering unit tests, functional tests, E2E tests, integration tests, and regression tests. See [tests/TESTING.md](tests/TESTING.md) for full documentation.
 
 ## License
 

@@ -3,7 +3,7 @@
 ## Overview
 
 - **Test runner**: `bash tests/run_tests.sh`
-- **Total test cases**: 306
+- **Total test cases**: 337
 - **Test categories**: 40
 - **Last verified**: 2026-03-12
 
@@ -563,8 +563,49 @@ VALID
   ✓ setup.sh: shellcheck clean
   ✓ install-linux.sh: shellcheck clean
 
+[62. Brand — All in One Claw]
+  ✓ Brand: setup.sh
+  ✓ Brand: install-linux.sh
+  ✓ Brand: README.md
+  ✓ Brand: README.zh.md
+
+[63. Expanded MCP — Tavily + Docker]
+  ✓ macOS MCP: tavily
+  ✓ Linux MCP: tavily
+  ✓ macOS MCP: docker
+  ✓ Linux MCP: docker
+  ✓ macOS: 9 MCP servers (>=9)
+  ✓ Linux: 9 MCP servers (>=9)
+  ✓ macOS allow: tavily
+  ✓ macOS allow: docker
+  ✓ Linux allow: tavily
+  ✓ Linux allow: docker
+
+[64. configure-keys.sh — Key Wizard]
+  ✓ configure-keys.sh exists
+  ✓ configure-keys.sh: syntax OK
+  ✓ Keys: GitHub token
+  ✓ Keys: Brave API
+  ✓ Keys: Tavily API
+  ✓ Keys: writes to .mcp.json
+  ✓ Keys: shows current status
+  ✓ Keys: runs without crash
+
+[65. README — configure-keys documented]
+  ✓ README: configure-keys mentioned
+  ✓ README: 9 MCP count
+  ✓ README: memory system
+  ✓ README: auto-updater
+
+[66. Final Full Regression]
+  ✓ setup.sh: syntax OK
+  ✓ install-linux.sh: syntax OK
+  ✓ fix.sh: syntax OK
+  ✓ backup-restore.sh: syntax OK
+  ✓ configure-keys.sh: syntax OK
+
 ═══════════════════════════════════════
-  Passed: 306  Failed: 0  Skipped: 0
+  Passed: 337  Failed: 0  Skipped: 0
 ═══════════════════════════════════════
 
 ALL TESTS PASSED

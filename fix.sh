@@ -21,7 +21,7 @@ OPENCLAW_DIR="$HOME/.openclaw"
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
 CONFIG="$OPENCLAW_DIR/openclaw.json"
 
-echo -e "\n${BOLD}OneClaw Fix Tool${NC}"
+echo -e "\n${BOLD}All in One Claw Fix Tool${NC}"
 echo -e "Checking and fixing common issues...\n"
 
 # ============================================================================

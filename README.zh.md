@@ -1,6 +1,6 @@
-# OneClaw
+# All in One Claw
 
-一键安装 Claude Code + OpenClaw + AWS 全家桶 — 支持 Mac、Linux 和 Docker。
+All in One Claw — Claude Code + OpenClaw + AWS 全家桶一键安装 — 支持 Mac、Linux 和 Docker。
 
 **完全不懂技术的小白也能用** — 打开终端，粘贴一行命令，按提示输入 AWS 密钥即可。
 
@@ -330,11 +330,11 @@ npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
 ## 测试
 
 ```bash
-# 运行完整测试套件（306 个测试用例）
+# 运行完整测试套件（337 个测试用例）
 bash tests/run_tests.sh
 ```
 
-61 个测试类别，覆盖单元测试、功能测试、E2E 测试、集成测试和回归测试。详见 [tests/TESTING.md](tests/TESTING.md)。
+66 个测试类别，覆盖单元测试、功能测试、E2E 测试、集成测试和回归测试。详见 [tests/TESTING.md](tests/TESTING.md)。
 
 ## 许可证
 

@@ -792,6 +792,72 @@ if command -v shellcheck >/dev/null 2>&1; then
         [ "$SC" -eq 0 ] && pass "$f: shellcheck clean" || fail "$f: shellcheck $SC warnings"
     done
 fi
+
+# ============================================================================
+section "62. Brand — All in One Claw"
+# ============================================================================
+
+grep -q 'All in One Claw\|All in One' "$SCRIPT_DIR/setup.sh" && pass "Brand: setup.sh" || fail "Brand: setup.sh"
+grep -q 'All in One Claw\|All in One' "$SCRIPT_DIR/install-linux.sh" && pass "Brand: install-linux.sh" || fail "Brand: install-linux.sh"
+head -1 "$SCRIPT_DIR/README.md" | grep -q 'All in One Claw' && pass "Brand: README.md" || fail "Brand: README.md"
+head -1 "$SCRIPT_DIR/README.zh.md" | grep -q 'All in One Claw' && pass "Brand: README.zh.md" || fail "Brand: README.zh.md"
+
+# ============================================================================
+section "63. Expanded MCP — Tavily + Docker"
+# ============================================================================
+
+for mcp in tavily docker; do
+    grep -q "$mcp" "$SCRIPT_DIR/setup.sh" && pass "macOS MCP: $mcp" || fail "macOS MCP: $mcp missing"
+    grep -q "$mcp" "$SCRIPT_DIR/install-linux.sh" && pass "Linux MCP: $mcp" || fail "Linux MCP: $mcp missing"
+done
+
+# Total MCP count check (should be 9)
+MAC_MCP=$(sed -n '/mcpServers/,/^MCP_EOF/p' "$SCRIPT_DIR/setup.sh" | grep -c '"command"' || true)
+LIN_MCP=$(sed -n '/mcpServers/,/^MCP_EOF/p' "$SCRIPT_DIR/install-linux.sh" | grep -c '"command"' || true)
+[ "$MAC_MCP" -ge 9 ] && pass "macOS: $MAC_MCP MCP servers (>=9)" || fail "macOS: only $MAC_MCP MCP servers"
+[ "$LIN_MCP" -ge 9 ] && pass "Linux: $LIN_MCP MCP servers (>=9)" || fail "Linux: only $LIN_MCP MCP servers"
+
+# Permissions for new MCPs
+grep -q 'mcp__tavily__' "$SCRIPT_DIR/setup.sh" && pass "macOS allow: tavily" || fail "macOS allow: tavily"
+grep -q 'mcp__docker__' "$SCRIPT_DIR/setup.sh" && pass "macOS allow: docker" || fail "macOS allow: docker"
+grep -q 'mcp__tavily__' "$SCRIPT_DIR/install-linux.sh" && pass "Linux allow: tavily" || fail "Linux allow: tavily"
+grep -q 'mcp__docker__' "$SCRIPT_DIR/install-linux.sh" && pass "Linux allow: docker" || fail "Linux allow: docker"
+
+# ============================================================================
+section "64. configure-keys.sh — Key Wizard"
+# ============================================================================
+
+if [ -f "$SCRIPT_DIR/configure-keys.sh" ]; then
+    pass "configure-keys.sh exists"
+    bash -n "$SCRIPT_DIR/configure-keys.sh" 2>/dev/null && pass "configure-keys.sh: syntax OK" || fail "configure-keys.sh: syntax error"
+    grep -q 'GITHUB_PERSONAL_ACCESS_TOKEN' "$SCRIPT_DIR/configure-keys.sh" && pass "Keys: GitHub token" || fail "Keys: GitHub missing"
+    grep -q 'BRAVE_API_KEY' "$SCRIPT_DIR/configure-keys.sh" && pass "Keys: Brave API" || fail "Keys: Brave missing"
+    grep -q 'TAVILY_API_KEY' "$SCRIPT_DIR/configure-keys.sh" && pass "Keys: Tavily API" || fail "Keys: Tavily missing"
+    grep -q 'set_mcp_env' "$SCRIPT_DIR/configure-keys.sh" && pass "Keys: writes to .mcp.json" || fail "Keys: no write logic"
+    grep -q 'show_status' "$SCRIPT_DIR/configure-keys.sh" && pass "Keys: shows current status" || fail "Keys: no status"
+    HELP=$(bash "$SCRIPT_DIR/configure-keys.sh" 2>&1 </dev/null || true)
+    echo "$HELP" | grep -q 'mcp.json not found\|API Key' && pass "Keys: runs without crash" || fail "Keys: crashes"
+else
+    fail "configure-keys.sh not found"
+fi
+
+# ============================================================================
+section "65. README — configure-keys documented"
+# ============================================================================
+
+grep -q 'configure-keys' "$SCRIPT_DIR/README.md" && pass "README: configure-keys mentioned" || fail "README: configure-keys missing"
+grep -q '9 MCP Servers\|9 MCP' "$SCRIPT_DIR/README.md" && pass "README: 9 MCP count" || fail "README: MCP count wrong"
+grep -q 'Memory System' "$SCRIPT_DIR/README.md" && pass "README: memory system" || fail "README: memory missing"
+grep -q 'Auto-Updater' "$SCRIPT_DIR/README.md" && pass "README: auto-updater" || fail "README: auto-updater missing"
+
+# ============================================================================
+section "66. Final Full Regression"
+# ============================================================================
+
+for f in setup.sh install-linux.sh fix.sh backup-restore.sh configure-keys.sh; do
+    [ -f "$SCRIPT_DIR/$f" ] || continue
+    bash -n "$SCRIPT_DIR/$f" 2>/dev/null && pass "$f: syntax OK" || fail "$f: BROKEN"
+done
 # Summary
 # ============================================================================
 echo ""

@@ -102,8 +102,8 @@ check_command() {
 # ============================================================================
 echo -e "\n${CYAN}${BOLD}"
 echo "  ╔══════════════════════════════════════════════════╗"
-echo "  ║       OnClick-Claw: One-Click Setup Script       ║"
-echo "  ║   Claude Code + OpenClaw + AWS on Mac Silicon    ║"
+echo "  ║       All in One Claw: One-Click Setup Script       ║"
+echo "  ║   Claude Code + OpenClaw + AWS — All in One    ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -549,6 +549,8 @@ cat > "$CLAUDE_DIR/settings.json" <<SETTINGS_EOF
             "mcp__filesystem__*",
             "mcp__sequential-thinking__*",
             "mcp__brave-search__*",
+            "mcp__tavily__*",
+            "mcp__docker__*",
             "mcp__aws-documentation__*",
             "WebFetch",
             "Write",
@@ -626,6 +628,17 @@ cat > "$HOME/.mcp.json" <<MCP_EOF
       "env": {
         "BRAVE_API_KEY": ""
       }
+    },
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp@latest"],
+      "env": {
+        "TAVILY_API_KEY": ""
+      }
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-docker@latest"]
     },
     "aws-documentation": {
       "command": "uvx",
